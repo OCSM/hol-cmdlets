@@ -1541,7 +1541,7 @@ Function Sync-DirectoryToCatalog {
 			}
 
 			$podsToUpload = Compare-DirectoryToCatalog -ServerName $serverName -OrgName $orgName -CatalogName $CatalogName -LibraryPath $LibraryPath
-		
+		}
 		foreach( $pod in $podsToUpload ) {
 			Write-Host "Uploading $pod from $LibraryPath to $CaatalogName"
 			Import-VPod -Key $Key -CatalogName $CatalogName -VPodName $pod -LibPath $LibraryPath -User $UserName -Password $Password
