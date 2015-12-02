@@ -954,9 +954,11 @@ Function Export-VPod {
 
 #>
 	PARAM (
-		$Key = $cloudKey,
+		$CloudInstance = $(throw "need -CloudInstance"),
+		$OrganizationName = $(throw "need -OrganizationName"),
 		$Catalog = $DEFAULT_SOURCECLOUDCATALOG,
 		$VPodName = $(throw "need -VPodName"), 
+		$DestinationvAppTemplate = $(throw "need -DestinationvAppTemplate"),
 		$LibPath = $DEFAULT_LOCALLIB,
 		$User = $DEFAULT_CLOUDUSER,
 		$Password = $DEFAULT_CLOUDPASSWORD,
@@ -966,7 +968,7 @@ Function Export-VPod {
 	)
 	PROCESS {
 
-		$ovfPath = Join-Path $LibPath $($VPodName + "\" + $VPodName + ".ovf")
+		$ovfPath = Join-Path $LibPath $($DestinationvAppTemplate + "\" + $DestinationvAppTemplate + ".ovf")
 
 		#test path to OVF, bail if found: no clobbering
 		if( (Test-Path $ovfPath) ) {
@@ -990,7 +992,7 @@ Function Export-VPod {
 		}
 
 		$tgt = $ovfPath
-		$src = "vcloud://$un" + ':' + $pw + '@' + $vcds[$k] + ':443/?org=' + $orgs[$k] + '&vdc=' + $ovdcs[$k] + '&catalog=' + $cat + '&' + "$type=$vp"
+		$src = "vcloud://$un" + ':' + $pw + '@' + $CloudInstance + ':443/?org=' + $OrganizationName  + '&catalog=' + $cat + '&' + "$type=$vp"
 
 		#Options ... ALWAYS preserveIdentity for HOL
 		$opt = $Options
@@ -1002,26 +1004,27 @@ Function Export-VPod {
 		Do {
 			$retryCount += 1
 			Write-Host "	 Running ovftool (try $retryCount of $MaxRetries)"
-			Invoke-Expression -Command $("ovftool $opt '" + $src + "' $tgt")
+			$env:Path = "C:\Program Files\VMware\VMware OVF Tool";
+			Invoke-Expression -Command $("ovftool $opt '" + $src + "' '" + $tgt + "' ")
 			Sleep -sec 60
 		} Until ( ($lastexitcode -eq 0) -or ($retryCount -gt $MaxRetries) )
 
 		if( !($retryCount -gt $maxRetries) ) {
 			Write-Host -fore Green "Completed export of vPod $vPodName at $(Get-Date)"
 			#Clean the OVF per HOL specifications
-			$vPodPath = Join-Path $LibPath $VPodName
-			Set-CleanOvf -LibraryPath $vPodPath
+#			$vPodPath = Join-Path $LibPath $VPodName
+#			Set-CleanOvf -LibraryPath $vPodPath
 
 			#If subject to the ovftool redundant path bug, fix it
-			$vPodDupPath = Join-Path $vPodPath $VPodName
-			if( Test-Path $vPodDupPath ) {
-				Get-ChildItem $vPodDupPath | Move-Item -Destination $vPodPath
-				Remove-Item $vPodDupPath
-			}
-			if( $vappNetIsSet ) { 
-				Write-Host "Creating metadata flag file: $wireFilePath"
-				New-Item -Path $wireFilePath -Type File 
-			}
+#			$vPodDupPath = Join-Path $vPodPath $VPodName
+#			if( Test-Path $vPodDupPath ) {
+#				Get-ChildItem $vPodDupPath | Move-Item -Destination $vPodPath
+#				Remove-Item $vPodDupPath
+#			}
+#			if( $vappNetIsSet ) { 
+#				Write-Host "Creating metadata flag file: $wireFilePath"
+#				New-Item -Path $wireFilePath -Type File 
+#			}
 		} else {
 			Write-Host -fore Red "FAILED export of vPod $vPodName at $(Get-Date)"
 		}
