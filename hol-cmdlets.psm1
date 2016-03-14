@@ -10,6 +10,7 @@
 
 ###### LOAD GLOBAL PER-CLOUD DEFAULTS FROM CONFIG FILE
 $holSettingsFile = 'E:\Scripts\hol_cmdlets_settings.xml'
+$xmlConfigured = $false
 
 if( Test-Path $holSettingsFile ) {
 	[xml]$SettingsFile = Get-Content $holSettingsFile
@@ -49,7 +50,8 @@ if( Test-Path $holSettingsFile ) {
 	$DEFAULT_EMAILSENDER = $SettingsFile.Settings.Defaults.EmailSender
 	$DEFAULT_SLEEPSECONDS = $SettingsFile.Settings.Defaults.SleepSeconds
 	$DEFAULT_CATALOGFREESPACE = $SettingsFile.Settings.Defaults.MinCatalogSpaceGb
-	$DEFAULT_OVFTOOLPATH = $SettingsFile.Settings.Defaults.OvfToolPath
+	#$DEFAULT_OVFTOOLPATH = $SettingsFile.Settings.Defaults.OvfToolPath
+	$DEFAULT_OVFTOOLPATH = 'C:\Program Files\VMware\VMware OVF Tool\'
 	$DEFAULT_HOLCMDLETSPATH = $SettingsFile.Settings.Defaults.HolCmdletsPath
 
 <#
@@ -64,12 +66,15 @@ NOTE: To Store the password encrypted for use here:
 	if( ($DEFAULT_CLOUDPASSWORD -eq '') -and (Test-Path $DEFAULT_CLOUDCREDENTIAL) ) {
 		$cred = New-Object System.Management.Automation.PsCredential $DEFAULT_CLOUDUSER , $(Get-Content $DEFAULT_CLOUDCREDENTIAL | ConvertTo-SecureString)
 		$DEFAULT_CLOUDPASSWORD = ($cred.GetNetworkCredential()).Password
-	}
-} else {
+	    }
+    $xmlConfigured = $true
+    } 
+    else {
 	Write-Host "Unable to find $holSettingsFile - no default values configured"
 }
 
 ##Aliases (module-level)
+
 if( !(Test-Path $DEFAULT_OVFTOOLPATH) ) {
 	Write-Host -fore Red "!!! OVFtool not found: $DEFAULT_OVFTOOLPATH"
 	Return
@@ -100,13 +105,17 @@ Function Connect-Cloud {
 		$Key = $cloudKey
 	)
 	PROCESS {
-		if( $Key -ne '' ) { 
-			Write-host "Connecting to $($orgs[$Key]) in $($vcds[$Key])"
-			Connect-CIServer $($vcds[$Key]) -org $($orgs[$Key]) -credential $($creds[$Key])
-		} Else {
-			Write-Host -Fore Red "ERROR: -Key or $cloudKey required"
-		}
-	}
+        if ( not $xmlConfigured ) {
+            throw "Must have XML config file"
+            return
+            }
+ 	    if( $Key -ne '' ) { 
+		    Write-host "Connecting to $($orgs[$Key]) in $($vcds[$Key])"
+		    Connect-CIServer $($vcds[$Key]) -org $($orgs[$Key]) -credential $($creds[$Key])
+	    } Else {
+		    Write-Host -Fore Red "ERROR: -Key or $cloudKey required"
+	    }	
+    }
 } #Connect-Cloud
 
 
@@ -862,7 +871,8 @@ Function Import-VPod {
 	Written for OVFTOOL 3.x ... works with 4.1.0
 #>
 	PARAM (
-		$Key = $cloudKey,
+		$CloudInstance = $(throw "need -CloudInstance"),
+		$OrganizationName = $(throw "need -OrganizationName"),
 		$Catalog = $DEFAULT_TARGETCLOUDCATALOG,
 		$VPodName = $(throw "need -VPodName"), 
 		$LibPath = $DEFAULT_LOCALLIB,
@@ -916,25 +926,33 @@ Function Import-VPod {
 			$cat = $Catalog
 		}
 
-		$src = $ovfPath
-		$tgt = "vcloud://$un" + ':' + $pw + '@' + $vcds[$k] + ':443/?org=' + $orgs[$k] + '&vdc=' + $ovdcs[$k] + "&catalog=$cat&$type=$vp"
+		#$src = $ovfPath
+		$src = '"{0}"' -f $ovfPath
+		$tgt = "vcloud://$un" + ':' + $pw + '@' + $CloudInstance + ':443/?org=' + $OrganizationName + "&catalog=$cat&$type=$vp"
 
-		Write-Host -fore Yellow "DEBUG: Target is: $($vcds[$k]) org: $($orgs[$k]) ovdc: $($ovdcs[$k])"
+		Write-Host -fore Yellow "DEBUG: Target is: $tgt"
 
 		#Options ( additional options to OVFtool like '--overwrite')
 		#PS doesn't seem to like passing multiple params to ovftool..
 		$opt = $Options
 
-		Write-Host -fore Yellow "DEBUG: $opt from $src to $($vcds[$k]) org: $($orgs[$k]) ovdc: $($ovdcs[$k]) catalog: $cat"
+		if ($xmlConfigured) { 
+            Write-Host -fore Yellow "DEBUG: $opt from $src to $($vcds[$k]) org: $($orgs[$k]) ovdc: $($ovdcs[$k]) catalog: $cat"
+        }
 
 		Write-Host -fore Green "Beginning import of vPod $vPodName at $(Get-Date)"
 		### need to put in a loop to ensure it is restarted if it times out. 
-		Do {
+        $lastexitcode = -1
+		While ($lastexitcode -ne 0) {
 			$retryCount += 1
 			Write-Host "	Running ovftool (try $retryCount of $MaxRetries) for $vp with options: $opt"
 			Invoke-Expression -Command $("ovftool $opt $src '" + $tgt +"'")
-			Sleep -sec 60
-		} Until ( ($lastexitcode -eq 0) -or ($retryCount -gt $MaxRetries) )
+			# Avoid the sleep if we were successful
+            if ( ($lastexitcode -eq 0) -or ($retryCount -gt $MaxRetries) ) {
+                break
+            }
+            else { Start-Sleep -Seconds 30 }
+		}
 		
 		if( !($retryCount -gt $maxRetries) ) {
 			Write-Host -fore Green "Completed import of vPod $vPodName at $(Get-Date)"
@@ -967,8 +985,7 @@ Function Export-VPod {
 		[Switch]$Print
 	)
 	PROCESS {
-
-		$ovfPath = Join-Path $LibPath $($DestinationvAppTemplate + "\" + $DestinationvAppTemplate + ".ovf")
+		$ovfPath = $LibPath + "\" + $DestinationvAppTemplate + "\" + $DestinationvAppTemplate + ".ovf"
 
 		#test path to OVF, bail if found: no clobbering
 		if( (Test-Path $ovfPath) ) {
@@ -984,14 +1001,18 @@ Function Export-VPod {
 		$pw = $Password
 		$type = 'vappTemplate'
 
-		if( $Catalog -eq "" ) {
+		if( $Catalog -eq "") {
+            if (not $xmlConfigured) {
+                throw "Must have XML Config File"
+                return
+            }
 			Write-Host "	 Exporting from default catalog: $($catalogs[$k])"
 			$cat = $catalogs[$k]
 		} else {
 			$cat = $Catalog
 		}
 
-		$tgt = $ovfPath
+		$tgt = $LibPath
 		$src = "vcloud://$un" + ':' + $pw + '@' + $CloudInstance + ':443/?org=' + $OrganizationName  + '&catalog=' + $cat + '&' + "$type=$vp"
 
 		#Options ... ALWAYS preserveIdentity for HOL
@@ -1001,13 +1022,18 @@ Function Export-VPod {
 
 		Write-Host -fore Green "Beginning export of vPod $vPodName at $(Get-Date)"
 		### need to put in a loop to ensure it is restarted when ovftool times out waiting for vCD
-		Do {
+        $lastexitcode = 1
+		While ($lastexitcode -ne 0) {
 			$retryCount += 1
 			Write-Host "	 Running ovftool (try $retryCount of $MaxRetries)"
-			$env:Path = "C:\Program Files\VMware\VMware OVF Tool";
-			Invoke-Expression -Command $("ovftool $opt '" + $src + "' '" + $tgt + "' ")
-			Sleep -sec 60
-		} Until ( ($lastexitcode -eq 0) -or ($retryCount -gt $MaxRetries) )
+            Invoke-Expression -Command $("ovftool $opt '" + $src + "' '" + $tgt + "' ")
+			# Avoid the sleep if we were successful
+            if ( ($lastexitcode -eq 0) -or ($retryCount -gt $MaxRetries) ) {
+                break
+            }
+            else { Start-Sleep -Seconds 30 }			
+		} 
+
 
 		if( !($retryCount -gt $maxRetries) ) {
 			Write-Host -fore Green "Completed export of vPod $vPodName at $(Get-Date)"
@@ -1050,6 +1076,10 @@ Function Import-VcdMedia {
 		$Options = ""
 	)
 	PROCESS {
+        if (not $xmlConfigured) {
+            throw "Must have an XML config file"
+            return
+            }
 
 		$mediaPath = Join-Path $LibPath $($MediaName + "." + $MediaType)
 
@@ -1281,6 +1311,11 @@ Function Get-CloudInfoFromKey {
 		$Key = $(throw "need -Key to lookup")
 	)
 	PROCESS {
+        if (not $xmlConfigured) {
+            throw "Must have an XML Config file"
+            return
+         }
+
 		if( $vcds.ContainsKey($Key) ) {
 			Return ($($vcds[$Key]),$($orgs[$Key]),$($catalogs[$Key]))
 		} else {
