@@ -15,8 +15,6 @@
 			<org>HOL</org>
 			<ovdc>HOL-user-ovDC1</ovdc>
 			<catalog>HOL-Master-Templates</catalog>
-			<credential>C:\my-HOL-credential</credential>
-			<username>my-per-cloud-username</username>
 		</Cloud>
 	</Clouds>
 	<VPodSettings>
@@ -48,10 +46,3 @@
 		<HolCmdletsPath>X:\Scripts\hol-cmdlets.psd1</HolCmdletsPath>
 	</Defaults>
 </Settings>
-
-<!--
-NOTE: To store the password encrypted for use here:
-		$c = Get-Credential $DEFAULT_CLOUDUSER
-		$c.Password | ConvertFrom-SecureString | Set-Content $DEFAULT_CLOUDCREDENTIAL
--->
-
