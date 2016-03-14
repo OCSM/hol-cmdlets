@@ -974,18 +974,19 @@ Function Export-VPod {
 	PARAM (
 		$CloudInstance = $(throw "need -CloudInstance"),
 		$OrganizationName = $(throw "need -OrganizationName"),
-		$Catalog = $DEFAULT_SOURCECLOUDCATALOG,
+		$SourcevPod = $(throw "need -SourcevPod"),
+		$Catalog = $(if( $catalogs.ContainsKey($Key) ){ $catalogs[$Key] } else{ $DEFAULT_SOURCECLOUDCATALOG } ),
 		$VPodName = $(throw "need -VPodName"), 
-		$DestinationvAppTemplate = $(throw "need -DestinationvAppTemplate"),
 		$LibPath = $DEFAULT_LOCALLIB,
-		$User = $DEFAULT_CLOUDUSER,
-		$Password = $DEFAULT_CLOUDPASSWORD,
+		$User = $(if( $creds.ContainsKey($Key) ){ $creds[$Key].GetNetworkCredential().UserName } else{ $DEFAULT_CLOUDUSER } ),
+		$Password = $(if( $creds.ContainsKey($Key) ){ $creds[$Key].GetNetworkCredential().Password } else{ $DEFAULT_CLOUDPASSWORD } ),
 		$MaxRetries = 20,
 		$Options = '--exportFlags=preserveIdentity --allowExtraConfig',
 		[Switch]$Print
 	)
 	PROCESS {
-		$ovfPath = $LibPath + "\" + $DestinationvAppTemplate + "\" + $DestinationvAppTemplate + ".ovf"
+
+		$ovfPath = Join-Path $LibPath $($VPodName + "\" + $VPodName + ".ovf")
 
 		#test path to OVF, bail if found: no clobbering
 		if( (Test-Path $ovfPath) ) {
@@ -995,25 +996,23 @@ Function Export-VPod {
 
 		$retryCount = 0
 
-		$vp = $VPodName
+		$vp = $SourcevPod
 		$k = $Key
 		$un = $User
 		$pw = $Password
 		$type = 'vappTemplate'
 
 		if( $Catalog -eq "") {
-            if (not $xmlConfigured) {
-                throw "Must have XML Config File"
-                return
-            }
 			Write-Host "	 Exporting from default catalog: $($catalogs[$k])"
 			$cat = $catalogs[$k]
 		} else {
 			$cat = $Catalog
 		}
 
-		$tgt = $LibPath
+		$tgt = $ovfPath
 		$src = "vcloud://$un" + ':' + $pw + '@' + $CloudInstance + ':443/?org=' + $OrganizationName  + '&catalog=' + $cat + '&' + "$type=$vp"
+		write-host "Source: $src"
+		write-host "Target: $tgt"
 
 		#Options ... ALWAYS preserveIdentity for HOL
 		$opt = $Options
@@ -1022,31 +1021,30 @@ Function Export-VPod {
 
 		Write-Host -fore Green "Beginning export of vPod $vPodName at $(Get-Date)"
 		### need to put in a loop to ensure it is restarted when ovftool times out waiting for vCD
-        $lastexitcode = 1
-		While ($lastexitcode -ne 0) {
+		Do {
 			$retryCount += 1
+			if ($retryCount -gt 1) {
+				Start-Sleep -Seconds 30
+			}
 			Write-Host "	 Running ovftool (try $retryCount of $MaxRetries)"
-            Invoke-Expression -Command $("ovftool $opt '" + $src + "' '" + $tgt + "' ")
-			# Avoid the sleep if we were successful
-            if ( ($lastexitcode -eq 0) -or ($retryCount -gt $MaxRetries) ) {
-                break
-            }
-            else { Start-Sleep -Seconds 30 }			
-		} 
+			Write-Host "ovftool $opt `"$src`" `"$tgt`" "
+            Invoke-Expression -Command $("ovftool $opt `"$src`" `"$tgt`" ")
+			write-host "OVFTOOL Exit Code: $lastexitcode"
+		} Until ( ($lastexitcode -eq 0) -or ($retryCount -gt $MaxRetries) )
 
 
-		if( !($retryCount -gt $maxRetries) ) {
+		if( $lastexitcode -eq 0 ) {
 			Write-Host -fore Green "Completed export of vPod $vPodName at $(Get-Date)"
 			#Clean the OVF per HOL specifications
-#			$vPodPath = Join-Path $LibPath $VPodName
+			$vPodPath = Join-Path $LibPath $VPodName
 #			Set-CleanOvf -LibraryPath $vPodPath
 
 			#If subject to the ovftool redundant path bug, fix it
-#			$vPodDupPath = Join-Path $vPodPath $VPodName
-#			if( Test-Path $vPodDupPath ) {
-#				Get-ChildItem $vPodDupPath | Move-Item -Destination $vPodPath
-#				Remove-Item $vPodDupPath
-#			}
+			$vPodDupPath = Join-Path $vPodPath $VPodName
+			if( Test-Path $vPodDupPath ) {
+				Get-ChildItem $vPodDupPath | Move-Item -Destination $vPodPath
+				Remove-Item $vPodDupPath
+			}
 #			if( $vappNetIsSet ) { 
 #				Write-Host "Creating metadata flag file: $wireFilePath"
 #				New-Item -Path $wireFilePath -Type File 
@@ -1054,6 +1052,7 @@ Function Export-VPod {
 		} else {
 			Write-Host -fore Red "FAILED export of vPod $vPodName at $(Get-Date)"
 		}
+		return $lastexitcode
 	 }
 } #Export-VPod
 
