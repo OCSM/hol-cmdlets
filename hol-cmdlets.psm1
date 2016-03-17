@@ -1030,7 +1030,7 @@ Function Export-VPod {
 			Write-Host "ovftool $opt `"$src`" `"$tgt`" "
             Invoke-Expression -Command $("ovftool $opt `"$src`" `"$tgt`" ")
 			write-host "OVFTOOL Exit Code: $lastexitcode"
-		} Until ( ($lastexitcode -eq 0) -or ($retryCount -gt $MaxRetries) )
+		} Until ( ($lastexitcode -eq 0) -or ($retryCount -ge $MaxRetries) )
 
 
 		if( $lastexitcode -eq 0 ) {
@@ -1052,7 +1052,6 @@ Function Export-VPod {
 		} else {
 			Write-Host -fore Red "FAILED export of vPod $vPodName at $(Get-Date)"
 		}
-		return $lastexitcode
 	 }
 } #Export-VPod
 
