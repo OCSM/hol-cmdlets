@@ -942,17 +942,15 @@ Function Import-VPod {
 
 		Write-Host -fore Green "Beginning import of vPod $vPodName at $(Get-Date)"
 		### need to put in a loop to ensure it is restarted if it times out. 
-        $lastexitcode = -1
-		While ($lastexitcode -ne 0) {
+		Do {
 			$retryCount += 1
+			if ($retryCount -gt 1) {
+				Start-Sleep -Seconds 30
+			}
 			Write-Host "	Running ovftool (try $retryCount of $MaxRetries) for $vp with options: $opt"
 			Invoke-Expression -Command $("ovftool $opt $src '" + $tgt +"'")
-			# Avoid the sleep if we were successful
-            if ( ($lastexitcode -eq 0) -or ($retryCount -gt $MaxRetries) ) {
-                break
-            }
-            else { Start-Sleep -Seconds 30 }
-		}
+			write-host "OVFTOOL Exit Code: $lastexitcode"
+		} Until ( ($lastexitcode -eq 0) -or ($retryCount -ge $MaxRetries) )
 		
 		if( !($retryCount -gt $maxRetries) ) {
 			Write-Host -fore Green "Completed import of vPod $vPodName at $(Get-Date)"
