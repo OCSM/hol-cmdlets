@@ -884,7 +884,7 @@ Function Import-VPod {
 	)
 	PROCESS {
 
-		$ovfPath = Join-Path $LibPath $($VPodName + "\" + $VPodName + ".ovf")
+		$ovfPath = Join-Path $LibPath $($VPodName + ".ovf")
 		
 		#test path, bail if not found
 		if( !(Test-Path $ovfPath) ) {
