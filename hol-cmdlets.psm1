@@ -50,8 +50,7 @@ if( Test-Path $holSettingsFile ) {
 	$DEFAULT_EMAILSENDER = $SettingsFile.Settings.Defaults.EmailSender
 	$DEFAULT_SLEEPSECONDS = $SettingsFile.Settings.Defaults.SleepSeconds
 	$DEFAULT_CATALOGFREESPACE = $SettingsFile.Settings.Defaults.MinCatalogSpaceGb
-	#$DEFAULT_OVFTOOLPATH = $SettingsFile.Settings.Defaults.OvfToolPath
-	$DEFAULT_OVFTOOLPATH = 'C:\Program Files\VMware\VMware OVF Tool\'
+	$DEFAULT_OVFTOOLPATH = $SettingsFile.Settings.Defaults.OvfToolPath
 	$DEFAULT_HOLCMDLETSPATH = $SettingsFile.Settings.Defaults.HolCmdletsPath
 
 <#
@@ -71,10 +70,11 @@ NOTE: To Store the password encrypted for use here:
     }
     else {
 	Write-Host "Unable to find $holSettingsFile - no default values configured"
+	$DEFAULT_OVFTOOLPATH = '/usr/local/bin/ovftool'
 }
 
 ##Aliases (module-level)
-
+write-host "Path:  $DEFAULT_OVFTOOLPATH"
 if( !(Test-Path $DEFAULT_OVFTOOLPATH) ) {
 	Write-Host -fore Red "!!! OVFtool not found: $DEFAULT_OVFTOOLPATH"
 	Return
