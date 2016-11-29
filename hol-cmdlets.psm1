@@ -1,4 +1,4 @@
-### 
+###
 ### HOL Administration Cmdlets
 ### -Doug Baer
 ###
@@ -68,7 +68,7 @@ NOTE: To Store the password encrypted for use here:
 		$DEFAULT_CLOUDPASSWORD = ($cred.GetNetworkCredential()).Password
 	    }
     $xmlConfigured = $true
-    } 
+    }
     else {
 	Write-Host "Unable to find $holSettingsFile - no default values configured"
 }
@@ -109,12 +109,12 @@ Function Connect-Cloud {
             throw "Must have XML config file"
             return
             }
- 	    if( $Key -ne '' ) { 
+ 	    if( $Key -ne '' ) {
 		    Write-host "Connecting to $($orgs[$Key]) in $($vcds[$Key])"
 		    Connect-CIServer $($vcds[$Key]) -org $($orgs[$Key]) -credential $($creds[$Key])
 	    } Else {
 		    Write-Host -Fore Red "ERROR: -Key or $cloudKey required"
-	    }	
+	    }
     }
 } #Connect-Cloud
 
@@ -125,23 +125,23 @@ Function Add-CIVAppShadows {
 	Provisions one copy of a vApp on each OrgVdc simultaneously (asynchronously)
 	Named <vAppName>_shadow_<OrgvdcName>
 	with 5 hour storage and Runtime leases so vCD clean them up if you forget
-	
+
 	Waits for the last of the vApps to finish deploying before moving to the next template
 
 	.EXAMPLE
 	$vApps = @()
-	$vAppNames | % { $vApps += (Get-CIVAppTemplate $_ -Catalog MY_CATALOG) } 
+	$vAppNames | % { $vApps += (Get-CIVAppTemplate $_ -Catalog MY_CATALOG) }
 	$orgVDCs = @()
 	$orgVdcNames | % { $orgVDCs += (Get-OrgVDC $_) }
 	Add-CIVAppShadows -o $orgVdcs -v $vApps
 #>
 	PARAM (
-		$vApps = $(throw "need -vApps"), 
+		$vApps = $(throw "need -vApps"),
 		$OrgVDCs = $(throw "need -OrgVdcs"),
 		$SleepTime = 120,
 		[Switch]$DebugMe
 	)
-	
+
 	PROCESS {
 		$fiveHr = New-Object System.Timespan 5,0,0
 
@@ -161,20 +161,20 @@ Function Add-CIVAppShadows {
 					Add-InternetMetadata -vpodName $vApp.Name
 				}
 			}
-			
+
 			#create one shadow on each orgvdc
 			Write-Host -fore Green "Beginning shadows for $($vApp.Name) at $(Get-Date)"
-			foreach( $orgVDC in $OrgVDCs ) { 
+			foreach( $orgVDC in $OrgVDCs ) {
 				$shadowName = $($($vApp.Name) + "_shadow_" + $($orgVDC.Name))
 				New-CIVApp -Name $shadowName -OrgVdc $orgVDC -VAppTemplate $vApp -RuntimeLease $fiveHr -StorageLease $fiveHr -RunAsync | Out-Null
 				Write-Host "==> Creating $shadowName"
 			}
-			
+
 			#pulling the "Status" from the object returned by New-vApp isn't right. This works.
 			$shadows = @{}
 			$shadowPattern = $($vApp.Name) + "_shadow_*"
 			if( $DebugMe ) { Write-Host -Fore Yellow "DEBUG: looking for $shadowPattern" }
-			foreach( $shadow in $(Get-CIVApp $shadowPattern) ) { 
+			foreach( $shadow in $(Get-CIVApp $shadowPattern) ) {
 				$shadows.Add( $shadow.Name , $(Get-CIView -CIObject $shadow) )
 			}
 
@@ -184,10 +184,10 @@ Function Add-CIVAppShadows {
 				$keys = $shadows.Clone().Keys
 
 				foreach( $key in $keys ) {
-					$shadows[$key].UpdateViewData()		
-					if( $shadows[$key].Status -ne 0 ) { 
+					$shadows[$key].UpdateViewData()
+					if( $shadows[$key].Status -ne 0 ) {
 						#has completed (status=8 is good), remove it from the waitlist
-						Write-Host "==> Finished $key with status $($shadows[$key].Status), $($shadows.count - 1) to go." 
+						Write-Host "==> Finished $key with status $($shadows[$key].Status), $($shadows.count - 1) to go."
 						$shadows.Remove($key)
 					}
 				}
@@ -210,7 +210,7 @@ Function Add-CIVAppShadowsWait {
 	Quick and dirty... no error checking.. can go infinite if the import fails
 #>
 	PARAM (
-		$vApp = $(throw "need -vApps"), 
+		$vApp = $(throw "need -vApps"),
 		$OrgVDCs = $(throw "need -OrgVdcs"),
 		$SleepTime = 300
 	)
@@ -240,20 +240,20 @@ Function Compare-Catalogs {
 		$TemplateFilter = 'HOL-*'
 	)
 	PROCESS {
-	
+
 		##TODO: check authentication to both clouds here
-	
+
 		try {
 			$catSrc = Get-Catalog $catalogSrcName -Server $cloudSrcName -MyOrgOnly -ErrorAction Stop | Where {$_.org.name -eq $OrgSrcName}
 		}
-		catch { 
+		catch {
 			Write-Host -Fore Red "Unable to find catalog on source cloud. Please verify that you are logged in to $CloudSrcName."
 			Return
 		}
 		try {
 			$catNew = Get-Catalog $catalogNewName -Server $cloudNewName -MyOrgOnly -ErrorAction Stop | Where {$_.org.name -eq $OrgNewName}
 		}
-		catch { 
+		catch {
 			Write-Host -Fore Red "Unable to find catalog on target cloud. Please verify that you are logged in to $CloudNewName."
 			Return
 		}
@@ -294,7 +294,7 @@ Function Compare-CatalogToDirectory {
 <#
 	Compare a vCD Catalog to a directory of exports (a "Library")
 	Assumes catalog is authoritative source of vApp Templates.
-	Output is an array of vApp Templates that exist in the Catalog 
+	Output is an array of vApp Templates that exist in the Catalog
 		but not the specified directory.
 
 	Requires being logged in to the cloud in question.
@@ -307,7 +307,7 @@ Function Compare-CatalogToDirectory {
 		$LibraryPath = $DEFAULT_LOCALLIB
 	)
 	PROCESS {
-		try { 
+		try {
 			$catalog = Get-Catalog $CatalogName -Server $ServerName -MyOrgOnly -ErrorAction Stop
 		}
 		catch {
@@ -315,11 +315,11 @@ Function Compare-CatalogToDirectory {
 			Return
 		}
 
-		if( -Not (Test-Path $LibraryPath) ) { 
+		if( -Not (Test-Path $LibraryPath) ) {
 			Write-Host -Fore Red "Library path $LibraryPath is not reachable."
 			Return
 		}
-	
+
 		$library = Get-ChildItem $LibraryPath | where {$_.mode -match "d"} | select Name
 
 		if( $catalog.VAppTemplateCount -eq 0 ) {
@@ -335,13 +335,13 @@ Function Compare-CatalogToDirectory {
 		foreach( $vApp in $library ) {
 			if( $vAppList.ContainsKey($vApp.Name) ) { $vAppList.Remove($vApp.Name) }
 		}
-	
+
 		#Here, the list contains the vApp Templates that are not yet in the Library
 		if( $vAppList.Count -ne 0 ) {
 			Write-Host "=== vPods in $CatalogName and not $LibraryPath ==="
 			foreach( $name in ($vAppList.Keys) ) { Write-Host $name }
 			Write-Host ""
-			
+
 			#Return the vPod names on the pipeline for further processing
 			Return $($vAppList.Values)
 		} else {
@@ -356,7 +356,7 @@ Function Compare-DirectoryToCatalog {
 <#
 	Compare a directory of exports (a "Library") to a vCD catalog.
 	Assumes directory is authoritative source of vApp Templates.
-	Output is the names of vApp Templates that exist in the directory 
+	Output is the names of vApp Templates that exist in the directory
 		but not the specified Catalog.
 
 	Requires being logged in to the cloud in question.
@@ -370,7 +370,7 @@ Function Compare-DirectoryToCatalog {
 	)
 
 	PROCESS {
-		try { 
+		try {
 			$catalog = Get-Catalog $CatalogName -Server $ServerName -MyOrgOnly -ErrorAction Stop
 		}
 		catch {
@@ -378,11 +378,11 @@ Function Compare-DirectoryToCatalog {
 			Return
 		}
 
-		if( -Not (Test-Path $LibraryPath) ) { 
+		if( -Not (Test-Path $LibraryPath) ) {
 			Write-Host -Fore Red "Library path $LibraryPath is not rachable."
 			Return
 		}
-	
+
 		$library = Get-ChildItem $LibraryPath | where {$_.mode -match "d"} | select Name
 		if( -not $library ) {
 			Write-Host -Fore Red "Empty Library at $LibraryPath"
@@ -397,13 +397,13 @@ Function Compare-DirectoryToCatalog {
 		foreach( $vApp in (Get-CIVappTemplate -catalog $catalog) ) {
 			if( $vAppList.ContainsKey($vApp.Name) ) { $vAppList.Remove($vApp.Name) }
 		}
-	
+
 		#The remainder contains the ones that are not yet in the Catalog
 		if( $vAppList.Count -ne 0 ) {
 			Write-Host "=== vPods in $libraryPath and not $CatalogName ==="
 			foreach( $name in ($vAppList.Keys) ) { Write-Host $name }
 			Write-Host ""
-			
+
 			#Return the vPod names on the pipeline for further processing
 			Return $($vAppList.Keys | Sort)
 		} else {
@@ -443,15 +443,15 @@ Function Test-Ovf {
 		$vmdkFiles = Get-ChildItem $(Split-Path $ovf) | select Name, Length
 		#compare
 		foreach( $vmdk in ($vmdkFiles) ) {
-			if( $ovfVmdks.ContainsKey($vmdk.Name) ) { 
+			if( $ovfVmdks.ContainsKey($vmdk.Name) ) {
 				if( $($ovfVmdks[$vmdk.Name]) -eq $($vmdk.Length) ) {
-					$ovfVmdks.Remove($vmdk.Name) 
+					$ovfVmdks.Remove($vmdk.Name)
 				}
 			}
 		}
 		#if there is nothing left in the $ovfVmdks, that's good...
 		if( $ovfVmdks.Count -eq 0 ) { Return $true }
-		else { 
+		else {
 			foreach( $vmdk in ($ovfVmdks.Keys) ) {
 				Write-Host -Fore Red "Missing file: $vmdk with length $($ovfVmdks[$vmdk])"
 			}
@@ -472,8 +472,8 @@ Function Get-OvfMap {
 		#Read the OVF
 		[xml]$new = Get-Content $OVF
 		$newfiles = $new.Envelope.References.File
-		$newvAppName = $new.Envelope.VirtualSystemCollection.Name 
-	
+		$newvAppName = $new.Envelope.VirtualSystemCollection.Name
+
 		#Read the filenames to the OVF IDs in a hash table by diskID within the OVF
 		Write-Host "`n=====>OVF Mapping for $newvAppName"
 		$newVmdks = @{}
@@ -485,7 +485,7 @@ Function Get-OvfMap {
 		$newVms = @()
 		$newVms = $new.Envelope.VirtualSystemCollection.VirtualSystem
 		$newDiskMap = @{}
-	
+
 		foreach( $vm in $newVms ) {
 			$newDiskMap.Add($vm.name,@{})
 			$disks = ($vm.VirtualHardwareSection.Item | Where {$_.description -like "Hard disk*"} | Sort -Property AddressOnParent)
@@ -499,12 +499,12 @@ Function Get-OvfMap {
 				($newDiskMap[$vm.name]).Add($diskName,$newVmdks[$ref])
 			}
 		}
-		
+
 		#Output the data
 		foreach($key in $newDiskMap.Keys ) {
-			foreach( $key2 in ($newDiskMap[$key]).Keys ) { 
+			foreach( $key2 in ($newDiskMap[$key]).Keys ) {
 				$str2 = "	" + $key2 + "->" + ($newDiskMap[$key])[$key2]
-				if( $key -ne $curKey ) { 
+				if( $key -ne $curKey ) {
 					Write "`n==> VM: $key"
 					$curKey = $key
 				}
@@ -557,15 +557,15 @@ Function Publish-VCDMediaDirectory {
 				$media.name = $iso.name
 				$media.ImageType = 'iso'
 				$media.size = $iso.length
-				
+
 				$media.Files = New-Object VMware.VimAutomation.Cloud.Views.FilesList
 				$media.Files.File = @(new-object VMware.VimAutomation.Cloud.Views.File)
 				$media.Files.File[0] = new-object VMware.VimAutomation.Cloud.Views.File
 				$media.Files.file[0].type = 'iso'
 				$media.Files.file[0].name = $iso.name
-				
+
 				$OrgVdc.ExtensionData.CreateMedia($media)
-				
+
 				$filehref = (Get-Media $media.name | Get-CIView).files.file[0].link[0].href
 				$webclient = New-Object system.net.webclient
 				$webclient.Headers.Add('x-vcloud-authorization',$global:DefaultCIServers[0].sessionid)
@@ -576,7 +576,7 @@ Function Publish-VCDMediaDirectory {
 
 		#Add media w/o catalog to the specified catalog
 		$unboundMediaList = Get-Media | where {!$_.catalog}
-		
+
 		foreach( $unboundItem in $unboundMediaList ) {
 			$newItem = New-Object VMware.VimAutomation.Cloud.Views.CatalogItem
 			$newItem.Entity = $unboundItem.href
@@ -595,7 +595,7 @@ Function Set-CleanOvf {
 	* Look for and remove "stuck" NAT rules
 	* Look for CustomizeOnInstantiate flag set and unset
 	* Look for VMs with "POOL" addresses and change to "DHCP"
-	
+
 	* 2015 Update: generate and replace OVF's checksum in Manifest
 	* Correct VMDK sizes specified in MB, but are smaller than data population
 #>
@@ -610,7 +610,7 @@ Function Set-CleanOvf {
 			$manifestExists = $false
 			#Create the expected Manifest file's path
 			$mf = $ovf.FullName.Replace('.ovf','.mf')
-			if( Test-Path $mf ) { 
+			if( Test-Path $mf ) {
 				$manifestExists = $true
 				$ovfHash = (Get-FileHash -Algorithm SHA1 -Path $ovf.FullName).Hash.ToLower()
 			}
@@ -658,7 +658,7 @@ Function Set-CleanOvf {
 					}
 				}
 
-				(Get-Content $ovf.fullName) | % { 
+				(Get-Content $ovf.fullName) | % {
 					$line = $_
 
 					foreach( $disk in $disksToResize.Keys ) {
@@ -667,7 +667,7 @@ Function Set-CleanOvf {
 							If( $line -match '.*ovf:capacity="(\d+)".*' ) {
 								$oldSize = $matches[1]
 								$newSize = [int]$oldSize + $disksToResize[$disk]
-								$line = $line -replace $oldSize, $newSize 
+								$line = $line -replace $oldSize, $newSize
 								Write-Host "Replacing $oldSize with $newSize"
 								$smallDisks = $true
 							}
@@ -678,13 +678,13 @@ Function Set-CleanOvf {
 
 					#handle the OVF password stripping that vCD performs
 					if( $line -match 'ovf:password="true"' ) {
-						$line = $line -replace 'value=""','value="VMware1!"' 
+						$line = $line -replace 'value=""','value="VMware1!"'
 						$setPassword = $true
 						$line
 					}
 					elseif( $line -match 'CustomizeOnInstantiate>true' ) {
 						#handle the CustomizeOnInstantiate -- we don't want it!
-						$line = $line -replace 'true','false' 
+						$line = $line -replace 'true','false'
 						$setCustomize = $true
 						$line
 					}
@@ -696,11 +696,11 @@ Function Set-CleanOvf {
 					}
 					else {
 						#handle "stuck" NAT rules
-						if( $line -match '<vcloud:NatService>' ) { 
+						if( $line -match '<vcloud:NatService>' ) {
 							$keep = $false
 							$removedNat = $true
 						}
-						if( $line -match '</vcloud:NatService>' ) { 
+						if( $line -match '</vcloud:NatService>' ) {
 							$keep = $true
 							$last = $true
 						}
@@ -733,7 +733,7 @@ Function Set-CleanOvf {
 					$newOvfHash = (Get-FileHash -Algorithm SHA1 -Path $ovf.FullName).Hash.ToLower()
 					$backupMF = $mf + '_BAK'
 					Copy-Item -LiteralPath $mf -Destination $backupMF -Force
-					(Get-Content $mf) | % { 
+					(Get-Content $mf) | % {
 						$line = $_
 						if( $line -match $ovfHash ) {
 							$line = $line -replace $ovfHash,$newOvfHash
@@ -750,116 +750,116 @@ Function Set-CleanOvf {
 
 ### Some vCD Metadata management functions from Alan Renouf
 
-Function Get-CIMetaData { 
-	<# 
-	.SYNOPSIS 
-		Retrieves all Metadata Key/Value pairs. 
-	.DESCRIPTION 
-		Retrieves all custom Metadata Key/Value pairs on a specified vCloud object 
+Function Get-CIMetaData {
+	<#
+	.SYNOPSIS
+		Retrieves all Metadata Key/Value pairs.
+	.DESCRIPTION
+		Retrieves all custom Metadata Key/Value pairs on a specified vCloud object
 		Updated 6-Mar-2014 by Doug Baer to support vCD 5.1 Metadata
-	.PARAMETER	CIObject 
-		The object on which to retrieve the Metadata. 
-	.PARAMETER	Key 
-		The key to retrieve. 
-	.EXAMPLE 
-		PS C:\> Get-CIMetadata -CIObject (Get-Org Org1) 
-	#> 
-	PARAM( 
-		[parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)] 
-			[PSObject[]]$CIObject, 
-			$Key 
+	.PARAMETER	CIObject
+		The object on which to retrieve the Metadata.
+	.PARAMETER	Key
+		The key to retrieve.
+	.EXAMPLE
+		PS C:\> Get-CIMetadata -CIObject (Get-Org Org1)
+	#>
+	PARAM(
+		[parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
+			[PSObject[]]$CIObject,
+			$Key
 		)
-	PROCESS { 
-		foreach( $Object in $CIObject ) { 
-			if( $Key ) { 
-				($Object.ExtensionData.GetMetadata()).MetadataEntry | Where {$_.Key -eq $key } | Select @{N="CIObject";E={$Object.Name}}, Key, @{N="Value";E={$_.TypedValue.Value}} 
-			} else { 
-				($Object.ExtensionData.GetMetadata()).MetadataEntry | Select @{N="CIObject";E={$Object.Name}}, Key, @{N="Value";E={$_.TypedValue.Value}} 
+	PROCESS {
+		foreach( $Object in $CIObject ) {
+			if( $Key ) {
+				($Object.ExtensionData.GetMetadata()).MetadataEntry | Where {$_.Key -eq $key } | Select @{N="CIObject";E={$Object.Name}}, Key, @{N="Value";E={$_.TypedValue.Value}}
+			} else {
+				($Object.ExtensionData.GetMetadata()).MetadataEntry | Select @{N="CIObject";E={$Object.Name}}, Key, @{N="Value";E={$_.TypedValue.Value}}
 			}
 		}
 	}
 } #Get-CIMetaData
 
 
-Function New-CIMetaData { 
-	<# 
-	.SYNOPSIS 
-		Creates a Metadata Key/Value pair. 
-	.DESCRIPTION 
-		Creates a custom Metadata Key/Value pair on a specified vCloud object 
-	.PARAMETER	Key 
-		The name of the Metadata to be applied. 
-	.PARAMETER	Value 
-		The value of the Metadata to be applied. 
-	.PARAMETER	CIObject 
-		The object on which to apply the Metadata. 
-	.EXAMPLE 
-		PS C:\> New-CIMetadata -Key "Owner" -Value "Alan Renouf" -CIObject (Get-Org Org1) 
+Function New-CIMetaData {
+	<#
+	.SYNOPSIS
+		Creates a Metadata Key/Value pair.
+	.DESCRIPTION
+		Creates a custom Metadata Key/Value pair on a specified vCloud object
+	.PARAMETER	Key
+		The name of the Metadata to be applied.
+	.PARAMETER	Value
+		The value of the Metadata to be applied.
+	.PARAMETER	CIObject
+		The object on which to apply the Metadata.
+	.EXAMPLE
+		PS C:\> New-CIMetadata -Key "Owner" -Value "Alan Renouf" -CIObject (Get-Org Org1)
 	.NOTE
 		Setting a key in the 'SYSTEM' domain requires sysadmin access, I believe:
 			$Metadata.MetadataEntry[0].Domain = New-Object VMware.VimAutomation.Cloud.Views.MetadataDomainTag
 			$Metadata.MetadataEntry[0].Domain.Value = 'SYSTEM'
 			$Metadata.MetadataEntry[0].Domain.Visibility = 'READONLY' or 'PRIVATE'
-	#> 
-	 [CmdletBinding( 
-		 SupportsShouldProcess=$true, 
-		ConfirmImpact="High" 
-	)] 
-	PARAM( 
-		[parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)] 
-			[PSObject[]]$CIObject, 
-			$Key, 
-			$Value 
-		) 
-	PROCESS { 
-		foreach( $Object in $CIObject ) { 
-			$Metadata = New-Object VMware.VimAutomation.Cloud.Views.Metadata 
-			$Metadata.MetadataEntry = New-Object VMware.VimAutomation.Cloud.Views.MetadataEntry 
+	#>
+	 [CmdletBinding(
+		 SupportsShouldProcess=$true,
+		ConfirmImpact="High"
+	)]
+	PARAM(
+		[parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
+			[PSObject[]]$CIObject,
+			$Key,
+			$Value
+		)
+	PROCESS {
+		foreach( $Object in $CIObject ) {
+			$Metadata = New-Object VMware.VimAutomation.Cloud.Views.Metadata
+			$Metadata.MetadataEntry = New-Object VMware.VimAutomation.Cloud.Views.MetadataEntry
 			$Metadata.MetadataEntry[0].Key = $Key
 			$Metadata.MetadataEntry[0].TypedValue = New-Object VMware.VimAutomation.Cloud.Views.MetadataStringValue
 			$Metadata.MetadataEntry[0].TypedValue.Value = $Value
-			$Object.ExtensionData.CreateMetadata($Metadata) 
-			($Object.ExtensionData.GetMetadata()).MetadataEntry | Where {$_.Key -eq $key } | Select @{N="CIObject";E={$Object.Name}}, Key, @{N="Value";E={$_.TypedValue.Value}} 
-		} 
-	} 
+			$Object.ExtensionData.CreateMetadata($Metadata)
+			($Object.ExtensionData.GetMetadata()).MetadataEntry | Where {$_.Key -eq $key } | Select @{N="CIObject";E={$Object.Name}}, Key, @{N="Value";E={$_.TypedValue.Value}}
+		}
+	}
 } #New-CIMetaData
 
 
-Function Remove-CIMetaData { 
-	<# 
-	.SYNOPSIS 
-		Removes a Metadata Key/Value pair. 
-	.DESCRIPTION 
-		Removes a custom Metadata Key/Value pair on a specified vCloud object 
-	.PARAMETER	Key 
-		The name of the Metadata to be removed. 
-	.PARAMETER	CIObject 
-		The object on which to remove the Metadata. 
-	.EXAMPLE 
-		PS C:\> Remove-CIMetaData -CIObject (Get-Org Org1) -Key "Owner" 
+Function Remove-CIMetaData {
+	<#
+	.SYNOPSIS
+		Removes a Metadata Key/Value pair.
+	.DESCRIPTION
+		Removes a custom Metadata Key/Value pair on a specified vCloud object
+	.PARAMETER	Key
+		The name of the Metadata to be removed.
+	.PARAMETER	CIObject
+		The object on which to remove the Metadata.
+	.EXAMPLE
+		PS C:\> Remove-CIMetaData -CIObject (Get-Org Org1) -Key "Owner"
 	.NOTE
-		If the key is in the 'SYSTEM' domain, you need to specify the domain: GetMetaDataValue($Key,'SYSTEM') 
-	#> 
-	 [CmdletBinding( 
-		 SupportsShouldProcess=$true, 
-		ConfirmImpact="High" 
-	)] 
-	PARAM( 
-		[parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)] 
-			[PSObject[]]$CIObject, 
-			$Key 
+		If the key is in the 'SYSTEM' domain, you need to specify the domain: GetMetaDataValue($Key,'SYSTEM')
+	#>
+	 [CmdletBinding(
+		 SupportsShouldProcess=$true,
+		ConfirmImpact="High"
+	)]
+	PARAM(
+		[parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
+			[PSObject[]]$CIObject,
+			$Key
 		)
-	PROCESS { 
-		$CIObject | foreach { 
+	PROCESS {
+		$CIObject | foreach {
 			try {
 				$metadataValue = ($_.ExtensionData.GetMetadata()).GetMetaDataValue($Key)
 			}
 			catch {
 				Write "Key $key not found on object $($_.Name)"
-			} 
-			if( $metadataValue ) { $metadataValue.Delete() } 
-		} 
-	} 
+			}
+			if( $metadataValue ) { $metadataValue.Delete() }
+		}
+	}
 } # Remove-CIMetaData
 
 
@@ -874,7 +874,7 @@ Function Import-VPod {
 		$CloudInstance = $(throw "need -CloudInstance"),
 		$OrganizationName = $(throw "need -OrganizationName"),
 		$Catalog = $DEFAULT_TARGETCLOUDCATALOG,
-		$VPodName = $(throw "need -VPodName"), 
+		$VPodName = $(throw "need -VPodName"),
 		$LibPath = $DEFAULT_LOCALLIB,
 		$User = $DEFAULT_CLOUDUSER,
 		$Password = $DEFAULT_CLOUDPASSWORD,
@@ -885,13 +885,13 @@ Function Import-VPod {
 	PROCESS {
 
 		$ovfPath = Join-Path $LibPath $($VPodName + ".ovf")
-		
+
 		#test path, bail if not found
 		if( !(Test-Path $ovfPath) ) {
 			Write-Host -fore Red "!!! OVF file not found: $ovfPath"
 			Return
 		}
-		
+
 		## Import-CIVAppTemplate does not check for all VMDKs, but will DIE if something is not there
 
 		## Check to see if all the vmdk files referenced in the OVF exist.
@@ -901,7 +901,7 @@ Function Import-VPod {
 		}
 
 		$retryCount = 0
-		
+
 		if( $AlternateName -ne '' ) {
 			$vp = $AlternateName
 		} else {
@@ -913,12 +913,12 @@ Function Import-VPod {
 
 		if($Password -eq "") {
 			$pw = 'xx'
-		} else { 
+		} else {
 			$pw = $Password
 		}
-		
+
 		$type = 'vappTemplate'
-		
+
 		if( $Catalog -eq "" ) {
 			Write-Host "	Importing to default catalog: $($catalogs[$k])"
 			$cat = $catalogs[$k]
@@ -936,12 +936,12 @@ Function Import-VPod {
 		#PS doesn't seem to like passing multiple params to ovftool..
 		$opt = $Options
 
-		if ($xmlConfigured) { 
+		if ($xmlConfigured) {
             Write-Host -fore Yellow "DEBUG: $opt from $src to $($vcds[$k]) org: $($orgs[$k]) ovdc: $($ovdcs[$k]) catalog: $cat"
         }
 
 		Write-Host -fore Green "Beginning import of vPod $vPodName at $(Get-Date)"
-		### need to put in a loop to ensure it is restarted if it times out. 
+		### need to put in a loop to ensure it is restarted if it times out.
 		Do {
 			$retryCount += 1
 			if ($retryCount -gt 1) {
@@ -951,12 +951,12 @@ Function Import-VPod {
 			Invoke-Expression -Command $("ovftool $opt $src '" + $tgt +"'")
 			write-host "OVFTOOL Exit Code: $lastexitcode"
 		} Until ( ($lastexitcode -eq 0) -or ($retryCount -ge $MaxRetries) )
-		
+
 		if( !($retryCount -gt $maxRetries) ) {
 			Write-Host -fore Green "Completed import of vPod $vPodName at $(Get-Date)"
 		} else {
 			Write-Host -fore Red "FAILED import of vPod $vPodName at $(Get-Date)"
-		} 
+		}
 	}
 } #Import-VPod
 
@@ -974,7 +974,7 @@ Function Export-VPod {
 		$OrganizationName = $(throw "need -OrganizationName"),
 		$SourcevPod = $(throw "need -SourcevPod"),
 		$Catalog = $(if( $catalogs.ContainsKey($Key) ){ $catalogs[$Key] } else{ $DEFAULT_SOURCECLOUDCATALOG } ),
-		$VPodName = $(throw "need -VPodName"), 
+		$VPodName = $(throw "need -VPodName"),
 		$LibPath = $DEFAULT_LOCALLIB,
 		$User = $(if( $creds.ContainsKey($Key) ){ $creds[$Key].GetNetworkCredential().UserName } else{ $DEFAULT_CLOUDUSER } ),
 		$Password = $(if( $creds.ContainsKey($Key) ){ $creds[$Key].GetNetworkCredential().Password } else{ $DEFAULT_CLOUDPASSWORD } ),
@@ -998,17 +998,17 @@ Function Export-VPod {
 		$k = $Key
 		$un = $User
 		$pw = $Password
-		$type = 'vappTemplate'
-
-		if( $Catalog -eq "") {
-			Write-Host "	 Exporting from default catalog: $($catalogs[$k])"
-			$cat = $catalogs[$k]
-		} else {
-			$cat = $Catalog
-		}
 
 		$tgt = $ovfPath
-		$src = "vcloud://$un" + ':' + $pw + '@' + $CloudInstance + ':443/?org=' + $OrganizationName  + '&catalog=' + $cat + '&' + "$type=$vp"
+
+		if( $catalog -eq '' ) {
+			  $type = 'vapp'
+				$src = "vcloud://$un" + ':' + $pw + '@' + $CloudInstance + ':443/?org=' + $OrganizationName + '&' + "$type=$vp"
+		} else {
+		    $type = 'vAppTemplate'
+				$src = "vcloud://$un" + ':' + $pw + '@' + $CloudInstance + ':443/?org=' + $OrganizationName  + '&catalog=' + $cat + '&' + "$type=$vp"
+		}
+
 		write-host "Source: $src"
 		write-host "Target: $tgt"
 
@@ -1043,9 +1043,9 @@ Function Export-VPod {
 				Get-ChildItem $vPodDupPath | Move-Item -Destination $vPodPath
 				Remove-Item $vPodDupPath
 			}
-#			if( $vappNetIsSet ) { 
+#			if( $vappNetIsSet ) {
 #				Write-Host "Creating metadata flag file: $wireFilePath"
-#				New-Item -Path $wireFilePath -Type File 
+#				New-Item -Path $wireFilePath -Type File
 #			}
 		} else {
 			Write-Host -fore Red "FAILED export of vPod $vPodName at $(Get-Date)"
@@ -1063,7 +1063,7 @@ Function Import-VcdMedia {
 	PARAM (
 		$Key = $(throw "need -Key"),
 		$Catalog = "",
-		$MediaName = $(throw "need -MediaName"), 
+		$MediaName = $(throw "need -MediaName"),
 		$MediaType = 'iso',
 		$LibPath = $(throw "need -LibPath"),
 		$User = $DEFAULT_CLOUDUSER,
@@ -1084,17 +1084,17 @@ Function Import-VcdMedia {
 			Write-Host -fore Red "!!! $mediaType file not found: $mediaPath"
 			Return
 		}
-		
+
 		$maxRetries = 20
 		$retryCount = 0
-		
+
 		$vp = $MediaName
 		$k = $Key
 		$un = $User
 
 		if( $Password -eq "" ) {
 			$pw = 'xx'
-		} else { 
+		} else {
 			$pw = $Password
 		}
 
@@ -1103,7 +1103,7 @@ Function Import-VcdMedia {
 		} else {
 			$type = 'media'
 		}
-		
+
 		if( $Catalog -eq "" ) {
 			Write-Host "	Importing to default catalog: $($catalogs[$k])"
 			$cat = $catalogs[$k]
@@ -1112,12 +1112,12 @@ Function Import-VcdMedia {
 		}
 
 		$src = $mediaPath
-	
+
 		#allow override of OrgVDC via command line. Default based on $key
-		if( $OvDC -eq "" ) { 
-			$OvDC = $ovdcs[$k] 
+		if( $OvDC -eq "" ) {
+			$OvDC = $ovdcs[$k]
 		}
-	
+
 		$tgt = "vcloud://$un" + ':' + $pw + '@' + $vcds[$k] + ':443/?org=' + $orgs[$k] + '&vdc=' + $OvDC + "&catalog=$cat&$type=$vp"
 
 		Write-Host -fore Yellow "DEBUG: Target is: catalog: $cat in $($vcds[$k]) org: $($orgs[$k]) ovdc: $($ovdcs[$k])"
@@ -1129,19 +1129,19 @@ Function Import-VcdMedia {
 
 		Write-Host -fore Green "Beginning import of media $MediaName at $(Get-Date)"
 
-		### put in a loop to ensure it is restarted if it times out. 
+		### put in a loop to ensure it is restarted if it times out.
 		Do {
 			$retryCount += 1
 			Write-Host "	Running ovftool (try $retryCount of $maxRetries) for $vp with options: $opt"
 			ovftool $opt $src $tgt
 			Sleep -sec 60
 		} Until ( ($lastexitcode -eq 0) -or ($retryCount -gt $maxRetries) )
-		
+
 		if( !($retryCount -gt $maxRetries) ) {
 			Write-Host -fore Green "Completed import of media $MediaName at $(Get-Date)"
 		} else {
 			Write-Host -fore Red "FAILED import of media $MediaName at $(Get-Date)"
-		} 
+		}
 	}
 } #Import-VcdMedia
 
@@ -1165,11 +1165,11 @@ Function Test-CIVAppTemplateCustomization {
 			$vp = Get-CIVappTemplate -catalog $Catalog
 		}
 
-		foreach( $vpod in $vp ) { 
+		foreach( $vpod in $vp ) {
 			if( $vpod.CustomizeOnInstantiate ) {
 				Write-Host -Fore Red "$($vpod.name) is BAD"
 			} else {
-				if ( !($ShowOnlyBad) ) { 
+				if ( !($ShowOnlyBad) ) {
 					Write-Host "$($vpod.name) is GOOD"
 				}
 			}
@@ -1185,7 +1185,7 @@ Function Add-InternetMetadata {
 	Update 11/2014 to handle varying vApp network names
 	Update 07/2015 to handle different orgvdc patterns: grabs first one matching *UT*
 		Also handle special case for vCloud Air external network naming
-	Update 08/2015 to allow specification of catalog name 
+	Update 08/2015 to allow specification of catalog name
 #>
 	PARAM (
 		$VPodName = $(throw "need -vPodName"),
@@ -1193,7 +1193,7 @@ Function Add-InternetMetadata {
 	)
 	PROCESS {
 		$vp = Get-CIVAppTemplate $VPodName -Catalog $CatalogName
-		$networkConfig = ($vp.ExtensionData.Section | where {$_.NetworkConfig -ne $null}).NetworkConfig 
+		$networkConfig = ($vp.ExtensionData.Section | where {$_.NetworkConfig -ne $null}).NetworkConfig
 		$vAppNetName = ($networkConfig | where { $_.NetworkName -like "vAppNet*"}).NetworkName
 		if( $vAppNetName -ne $null ) {
 			New-CIMetaData -CIObject $vp -Key 'vappNetwork1' -Value $vAppNetName
@@ -1360,11 +1360,11 @@ Function Test-OvfDisk {
 			$diskCapacity = [int]($disk.capacity)
 			$diskSpecifiedSize = $diskCapacity * 1MB
 			$diskFileSize = $($vmdkSizes[$diskID])
-			
+
 			#the issue is that the FileSize > SpecifiedSize
 			$diskSizeDifference = $diskSpecifiedSize - $diskFileSize
-			
-			
+
+
 			if( $diskSizeDifference -lt 0 ) {
 				if( $DebugMe ) {
 					Write-Host -fore Green "BEFORE"
@@ -1414,12 +1414,12 @@ Function Show-VpodVersions {
 		$Clouds | % { $cloudHash.Add($_,"") }
 
 		if( Test-Path $LibPath ) {
-			(Get-ChildItem $LibPath) | % { 
+			(Get-ChildItem $LibPath) | % {
 				$vAppName = $_.Name
 				$vAppSKU = $vAppName.Substring(0,$vAppName.LastIndexOf('-'))
 				$vAppVersion = $vAppName.Replace("$vAppSKU-",'')
 				$currentVersions.Add($vAppSKU,$vAppVersion)
-				$report.Add($vAppSKU,$cloudHash.Clone()) 
+				$report.Add($vAppSKU,$cloudHash.Clone())
 			}
 		} Else {
 			Write-Host -Foreground Red "ERROR: Unable to continue. Path $LibPath does not exist"
@@ -1430,7 +1430,7 @@ Function Show-VpodVersions {
 		foreach( $cloud in $Clouds ) {
 			$cloudName = (Get-CloudInfoFromKey -Key $cloud)[0]
 			$orgName = (Get-CloudInfoFromKey -Key $cloud)[1]
-			
+
 			try {
 				$catSrc = Get-Catalog $Catalog -Server $cloudName -Org $orgName  -ErrorAction 1
 				foreach( $vApp in ( $catSrc.ExtensionData.CatalogItems.catalogItem ) ) {
@@ -1455,7 +1455,7 @@ Function Show-VpodVersions {
 				Write-Host -Fore Red "ERROR: $Catalog not found in $orgName of $cloudName"
 			}
 		}
-		
+
 		$out = @()
 		foreach( $vpod in ( $report.keys | Sort-Object ) ) {
 			$line = "" | select (@('SKU') + $Clouds)
@@ -1478,8 +1478,8 @@ Function Test-PowerCLI {
 #>
 	if( (Get-Module | where { $_.name -like 'VMware.VimAutomation.Cloud' }).Count -gt 0 ) {
 		Return $true
-	} else { 
-		Return $false 
+	} else {
+		Return $false
 	}
 } #Test-PowerCLI
 
@@ -1500,8 +1500,8 @@ Function Import-PowerCLI {
 Function Get-CIVMShadow {
 <#
 	Show all of the shadows deployed as well as their respective parents (vApp Templates, Catalogs)
-#> 
-	[array]$arrShadowVMs = Search-Cloud adminshadowvm 
+#>
+	[array]$arrShadowVMs = Search-Cloud adminshadowvm
 	$hashCatalogs = @{}
 	$hashVAppTemplates = @{}
 	Search-Cloud AdminCatalog | %{ $hashCatalogs.($_.id) = $_ }
@@ -1513,21 +1513,21 @@ Function Get-CIVMShadow {
 } #Get-CIVMShadow
 
 
-Function Set-CIVAppTemplateConsolidate { 
-<# 
-.EXAMPLE 
+Function Set-CIVAppTemplateConsolidate {
+<#
+.EXAMPLE
 	PS C:\> Get-CIVAppTemplate Base-ePod-Basic-v8 -Catalog (Get-Org HOLDEV | Get-Catalog HOL_BASE_CAT01) | Set-CIVAppTemplateConsolidate
-#> 
+#>
 	PARAM (
 		[Parameter(Mandatory=$True, Position=1, ValueFromPipeline=$true)]
 		[PSObject[]]$InputObject
-	) 
+	)
 	PROCESS {
-		$InputObject | %{ 
+		$InputObject | %{
 			$VApp = $_
 			$vmCount = $VApp.ExtensionData.Children.vm.Count
 			$count = 0
-			$VApp.ExtensionData.Children.vm | %{ 
+			$VApp.ExtensionData.Children.vm | %{
 				$count += 1
 				Write-Host "Working on VM $count of $vmCount"
 				$_.Consolidate()
